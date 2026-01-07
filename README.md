@@ -2,6 +2,69 @@
 
 A comprehensive Claude Code plugin that transforms [Vers.sh](https://vers.sh) into a full integration testing platform. Test service compositions, run parallel integration tests, deploy to hosted environments, and share working integration stacks.
 
+---
+
+## Get Started in 60 Seconds
+
+### Step 1: Get Your API Key (30 seconds)
+
+1. Go to **[vers.sh/dashboard](https://vers.sh/dashboard)**
+2. Click **"Get API Key"**
+3. Copy your key
+
+That's it. No credit card. No setup wizard. Just copy the key.
+
+### Step 2: Set Up (30 seconds)
+
+Paste this in your terminal:
+
+```bash
+# Save your API key
+export VERS_API_KEY="paste-your-key-here"
+
+# Install the plugin
+claude plugin install github:hdresearch/vers-integration-plugin
+```
+
+### Step 3: You're Done!
+
+Open Claude Code and say:
+
+> "Set up integration testing for my app with Postgres and Redis"
+
+Claude will handle everything else.
+
+---
+
+## What Can You Do?
+
+| Say This to Claude | What Happens |
+|-------------------|--------------|
+| "Set up Postgres and Redis for testing" | Creates a VM with both services, ready to test |
+| "Run my tests in parallel" | Branches VM state, runs all tests at once |
+| "Test my checkout with different payment methods" | Tests credit card, PayPal, Apple Pay simultaneously |
+| "Deploy this to staging" | Pushes your tested stack to a live URL |
+
+---
+
+## Why Vers?
+
+**Traditional testing:**
+```
+Start DB → Run Test 1 → Stop DB → Start DB → Run Test 2 → Stop DB...
+(15 minutes of waiting per test)
+```
+
+**With Vers:**
+```
+Start DB once → Branch → Run ALL tests in parallel
+(15 minutes total, not per test)
+```
+
+Your tests run **10-100x faster** because you're branching VMs instead of rebuilding them.
+
+---
+
 ## Overview
 
 This plugin provides:
@@ -16,14 +79,8 @@ This plugin provides:
 ### Installation
 
 ```bash
-# Add the Vers marketplace (when available)
-/plugin marketplace add hdresearch/vers-integration-plugin
-
 # Install the plugin
-/plugin install vers-integration-testing
-
-# Or install directly from GitHub
-/plugin install github:hdresearch/vers-integration-plugin
+claude plugin install github:hdresearch/vers-integration-plugin
 ```
 
 ### Basic Usage
@@ -313,11 +370,51 @@ vers-integration-plugin/
 
 ### Requirements
 
-- Vers CLI installed and authenticated
-- Node.js 18+ (for MCP server)
-- Claude Code 1.0+
+- **Vers API Key** - Get one free at [vers.sh/dashboard](https://vers.sh/dashboard)
+- **Claude Code** - Any recent version
 
-### Building
+That's it. The plugin handles everything else.
+
+---
+
+## Troubleshooting
+
+### "API key not found"
+
+```bash
+# Make sure your key is set
+echo $VERS_API_KEY
+
+# If empty, set it:
+export VERS_API_KEY="your-key-here"
+
+# To make it permanent, add to your shell profile:
+echo 'export VERS_API_KEY="your-key-here"' >> ~/.zshrc
+```
+
+### "Plugin not found"
+
+```bash
+# Reinstall the plugin
+claude plugin install github:hdresearch/vers-integration-plugin
+```
+
+### "VM won't start"
+
+Just ask Claude: *"My Vers VM won't start, can you help?"*
+
+Claude knows how to diagnose and fix common issues.
+
+### Still stuck?
+
+- [Open an issue](https://github.com/hdresearch/vers-integration-plugin/issues)
+- Email: support@vers.sh
+
+---
+
+## Development
+
+### Building from Source
 
 ```bash
 # Install dependencies
@@ -340,8 +437,6 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Links
 
-- [Vers.sh Documentation](https://docs.vers.sh)
-- [Vers Integration Testing Tutorial](https://docs.vers.sh/tutorials/integration-testing)
-- [Parallel Web Testing Tutorial](https://docs.vers.sh/tutorials/parallel-web-testing)
-- [Database State Testing Tutorial](https://docs.vers.sh/tutorials/database-state-testing)
+- [Vers.sh](https://vers.sh) - Get your API key
+- [Vers Documentation](https://docs.vers.sh)
 - [Report Issues](https://github.com/hdresearch/vers-integration-plugin/issues)
