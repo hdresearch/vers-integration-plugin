@@ -4,35 +4,17 @@ A comprehensive Claude Code plugin that transforms [Vers.sh](https://vers.sh) in
 
 ---
 
-## Get Started in 60 Seconds
+## Get Started
 
-### Step 1: Get Your API Key (30 seconds)
+**1. Go to [vers.sh](https://vers.sh) and sign up**
 
-1. Go to **[vers.sh/dashboard](https://vers.sh/dashboard)**
-2. Click **"Get API Key"**
-3. Copy your key
+The starter pack walks you through everything. You'll get your API key automatically.
 
-That's it. No credit card. No setup wizard. Just copy the key.
-
-### Step 2: Set Up (30 seconds)
-
-Paste this in your terminal:
-
-```bash
-# Save your API key
-export VERS_API_KEY="paste-your-key-here"
-
-# Install the plugin
-claude plugin install github:hdresearch/vers-integration-plugin
-```
-
-### Step 3: You're Done!
-
-Open Claude Code and say:
+**2. Open Claude Code and say:**
 
 > "Set up integration testing for my app with Postgres and Redis"
 
-Claude will handle everything else.
+That's it. You're done.
 
 ---
 
@@ -370,45 +352,15 @@ vers-integration-plugin/
 
 ### Requirements
 
-- **Vers API Key** - Get one free at [vers.sh/dashboard](https://vers.sh/dashboard)
-- **Claude Code** - Any recent version
-
-That's it. The plugin handles everything else.
+Just sign up at [vers.sh](https://vers.sh). The starter pack handles everything.
 
 ---
 
-## Troubleshooting
+## Need Help?
 
-### "API key not found"
+Ask Claude: *"Help me with Vers"* — Claude knows how to fix most issues.
 
-```bash
-# Make sure your key is set
-echo $VERS_API_KEY
-
-# If empty, set it:
-export VERS_API_KEY="your-key-here"
-
-# To make it permanent, add to your shell profile:
-echo 'export VERS_API_KEY="your-key-here"' >> ~/.zshrc
-```
-
-### "Plugin not found"
-
-```bash
-# Reinstall the plugin
-claude plugin install github:hdresearch/vers-integration-plugin
-```
-
-### "VM won't start"
-
-Just ask Claude: *"My Vers VM won't start, can you help?"*
-
-Claude knows how to diagnose and fix common issues.
-
-### Still stuck?
-
-- [Open an issue](https://github.com/hdresearch/vers-integration-plugin/issues)
-- Email: support@vers.sh
+Or: [Open an issue](https://github.com/hdresearch/vers-integration-plugin/issues) · [support@vers.sh](mailto:support@vers.sh)
 
 ---
 
