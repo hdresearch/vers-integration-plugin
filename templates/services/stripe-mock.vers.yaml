@@ -1,0 +1,170 @@
+# Stripe Mock Service Template
+apiVersion: vers.sh/v1
+kind: ServiceTemplate
+metadata:
+  name: stripe-mock
+  versions: ["latest"]
+  description: Official Stripe API mock server for testing
+  category: mock
+
+spec:
+  image: stripe/stripe-mock:latest
+
+  ports:
+    - containerPort: 12111
+      hostPort: 12111
+      protocol: tcp
+      description: HTTP API
+    - containerPort: 12112
+      hostPort: 12112
+      protocol: tcp
+      description: HTTPS API
+
+  healthcheck:
+    command: curl -s http://localhost:12111/v1/charges
+    interval: 5s
+    timeout: 5s
+    retries: 10
+    start_period: 5s
+
+  resources:
+    memory:
+      request: 64mb
+      limit: 128mb
+    cpu:
+      request: 0.1
+      limit: 0.5
+
+  config:
+    webhook_endpoint:
+      type: string
+      description: URL to send webhook events to
+      default: null
+
+    webhook_secret:
+      type: string
+      description: Webhook signing secret
+      default: whsec_test_secret
+
+    fixtures:
+      type: object
+      description: Pre-created test data
+      default: {}
+
+  environment:
+    STRIPE_MOCK_FIXTURES: /fixtures/fixtures.json
+
+  volumes:
+    - name: fixtures
+      path: /fixtures
+
+  init:
+    # Generate fixtures file from config
+    command: |
+      #!/bin/bash
+      cat > /fixtures/fixtures.json << 'EOF'
+      {
+        {{#if config.fixtures.customers}}
+        "customers": [
+          {{#each config.fixtures.customers}}
+          {
+            "id": "{{this.id}}",
+            "email": "{{this.email}}",
+            "metadata": {{json this.metadata}}
+          }{{#unless @last}},{{/unless}}
+          {{/each}}
+        ],
+        {{/if}}
+        {{#if config.fixtures.products}}
+        "products": [
+          {{#each config.fixtures.products}}
+          {
+            "id": "{{this.id}}",
+            "name": "{{this.name}}",
+            "prices": [
+              {{#each this.prices}}
+              {
+                "id": "{{this.id}}",
+                "unit_amount": {{this.amount}},
+                "currency": "{{this.currency}}"
+                {{#if this.recurring}},
+                "recurring": {
+                  "interval": "{{this.recurring.interval}}"
+                }
+                {{/if}}
+              }{{#unless @last}},{{/unless}}
+              {{/each}}
+            ]
+          }{{#unless @last}},{{/unless}}
+          {{/each}}
+        ],
+        {{/if}}
+        {{#if config.fixtures.payment_methods}}
+        "payment_methods": [
+          {{#each config.fixtures.payment_methods}}
+          {
+            "id": "{{this.id}}",
+            "type": "{{this.type}}",
+            "card": {
+              "brand": "{{this.card.brand}}",
+              "last4": "{{this.card.last4}}"
+            }
+          }{{#unless @last}},{{/unless}}
+          {{/each}}
+        ]
+        {{/if}}
+      }
+      EOF
+
+  # Test cards reference
+  metadata:
+    test_cards:
+      success: "4242424242424242"
+      decline: "4000000000000002"
+      insufficient_funds: "4000000000009995"
+      expired: "4000000000000069"
+      processing_error: "4000000000000119"
+      incorrect_cvc: "4000000000000127"
+      3ds_required: "4000002760003184"
+      3ds_always: "4000003800000446"
+
+  examples:
+    basic:
+      config:
+        webhook_endpoint: http://app:3000/webhooks/stripe
+        webhook_secret: whsec_test
+
+    with_products:
+      config:
+        webhook_endpoint: http://app:3000/webhooks/stripe
+        fixtures:
+          products:
+            - id: prod_monthly
+              name: Monthly Plan
+              prices:
+                - id: price_monthly
+                  amount: 1999
+                  currency: usd
+                  recurring:
+                    interval: month
+            - id: prod_yearly
+              name: Yearly Plan
+              prices:
+                - id: price_yearly
+                  amount: 19999
+                  currency: usd
+                  recurring:
+                    interval: year
+
+    with_customers:
+      config:
+        fixtures:
+          customers:
+            - id: cus_premium
+              email: premium@test.com
+              metadata:
+                tier: premium
+            - id: cus_free
+              email: free@test.com
+              metadata:
+                tier: free

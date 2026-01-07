@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "vers": {
+      "command": "npx",
+      "args": ["-y", "@hdresearch/vers-mcp"],
+      "env": {
+        "VERS_API_KEY": "${VERS_API_KEY}",
+        "VERS_CLUSTER_ID": "${VERS_CLUSTER_ID}"
+      },
+      "description": "Core Vers.sh MCP server for VM branching operations"
+    },
+    "vers-integration": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-server.js"],
+      "env": {
+        "VERS_API_KEY": "${VERS_API_KEY}",
+        "VERS_CLUSTER_ID": "${VERS_CLUSTER_ID}",
+        "VERS_REGISTRY_URL": "${VERS_REGISTRY_URL:-https://registry.vers.sh}"
+      },
+      "description": "Extended integration testing features - service orchestration, parallel testing, deployment, registry"
+    }
+  }
+}

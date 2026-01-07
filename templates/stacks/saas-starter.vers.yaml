@@ -1,0 +1,259 @@
+# SaaS Starter Stack Template
+# Complete stack for B2B SaaS applications with auth, payments, and email
+apiVersion: vers.sh/v1
+kind: StackTemplate
+metadata:
+  name: saas-starter
+  version: 1.0.0
+  description: Complete SaaS starter with PostgreSQL, Redis, Stripe, OAuth, and email
+  category: saas
+  tags:
+    - saas
+    - authentication
+    - payments
+    - starter
+
+spec:
+  vm:
+    memory_mib: 4096
+    vcpu: 2
+    storage_mib: 10000
+
+  services:
+    postgres:
+      template: postgres@15
+      config:
+        databases:
+          - app
+          - analytics
+        extensions:
+          - uuid-ossp
+          - pg_trgm
+        settings:
+          shared_buffers: 256MB
+          work_mem: 8MB
+
+    redis:
+      template: redis@7
+      config:
+        maxmemory: 256mb
+        maxmemory_policy: allkeys-lru
+
+    stripe:
+      template: stripe-mock
+      config:
+        webhook_endpoint: http://app:3000/webhooks/stripe
+        webhook_secret: whsec_test_secret
+        fixtures:
+          products:
+            - id: prod_starter
+              name: Starter Plan
+              prices:
+                - id: price_starter_monthly
+                  amount: 999
+                  currency: usd
+                  recurring:
+                    interval: month
+            - id: prod_pro
+              name: Pro Plan
+              prices:
+                - id: price_pro_monthly
+                  amount: 2999
+                  currency: usd
+                  recurring:
+                    interval: month
+            - id: prod_enterprise
+              name: Enterprise Plan
+              prices:
+                - id: price_enterprise_monthly
+                  amount: 9999
+                  currency: usd
+                  recurring:
+                    interval: month
+
+    oauth:
+      template: oauth-mock
+      config:
+        providers:
+          google:
+            client_id: mock_google_client
+            users:
+              - email: test@gmail.com
+                name: Test User
+                email_verified: true
+          github:
+            client_id: mock_github_client
+            users:
+              - login: testuser
+                email: test@github.com
+        callback_urls:
+          - http://localhost:3000/auth/callback
+          - http://app:3000/auth/callback
+
+    smtp:
+      template: mailhog
+      config:
+        smtp_port: 1025
+        api_port: 8025
+
+  tests:
+    unit:
+      command: npm run test:unit
+      parallel: true
+      timeout: 60000
+
+    auth:
+      command: npm run test:auth
+      depends_on:
+        - postgres
+        - redis
+        - oauth
+      branches:
+        - name: google-oauth
+          env:
+            OAUTH_PROVIDER: google
+            TEST_EMAIL: test@gmail.com
+        - name: github-oauth
+          env:
+            OAUTH_PROVIDER: github
+            TEST_EMAIL: test@github.com
+        - name: email-password
+          env:
+            AUTH_METHOD: email
+
+    billing:
+      command: npm run test:billing
+      depends_on:
+        - postgres
+        - stripe
+      branches:
+        - name: subscription-create
+          env:
+            BILLING_SCENARIO: create
+            PLAN: starter
+        - name: subscription-upgrade
+          env:
+            BILLING_SCENARIO: upgrade
+            FROM_PLAN: starter
+            TO_PLAN: pro
+        - name: subscription-cancel
+          env:
+            BILLING_SCENARIO: cancel
+        - name: payment-success
+          env:
+            BILLING_SCENARIO: payment
+            CARD: "4242424242424242"
+        - name: payment-declined
+          env:
+            BILLING_SCENARIO: payment
+            CARD: "4000000000000002"
+
+    email:
+      command: npm run test:email
+      depends_on:
+        - smtp
+      branches:
+        - name: welcome-email
+          env:
+            EMAIL_TYPE: welcome
+        - name: password-reset
+          env:
+            EMAIL_TYPE: password_reset
+        - name: invoice-email
+          env:
+            EMAIL_TYPE: invoice
+
+    integration:
+      command: npm run test:integration
+      depends_on:
+        - postgres
+        - redis
+        - stripe
+        - oauth
+        - smtp
+
+    e2e:
+      command: npm run test:e2e
+      depends_on:
+        - app
+      timeout: 300000
+
+  checkpoints:
+    - name: services-ready
+      after: services.*.healthcheck
+      description: All services healthy and ready
+
+    - name: db-migrated
+      after: npm run db:migrate
+      description: Database schema applied
+
+    - name: seeded
+      after: npm run db:seed
+      description: Test data loaded
+
+    - name: users-created
+      after: scripts/create-test-users.sh
+      description: Test users with subscriptions created
+
+  deploy:
+    staging:
+      target: vers.sh/hosted
+      domain: staging.${PROJECT_NAME}.vers.sh
+      resources:
+        memory: 2gb
+        vcpu: 1
+      auto_deploy:
+        branch: develop
+        on: push
+
+    production:
+      target: vers.sh/hosted
+      domain: ${PROJECT_NAME}.vers.sh
+      resources:
+        memory: 4gb
+        vcpu: 2
+      scaling:
+        min: 2
+        max: 10
+        target_cpu: 70%
+      ssl:
+        provider: letsencrypt
+
+    preview:
+      target: vers.sh/hosted
+      domain: pr-${PR_NUMBER}.preview.${PROJECT_NAME}.vers.sh
+      resources:
+        memory: 1gb
+        vcpu: 1
+      lifecycle:
+        max_age: 7d
+        destroy_on: pull_request.closed
+
+  # Environment variables template
+  env_template:
+    DATABASE_URL: postgres://postgres:postgres@postgres:5432/app
+    REDIS_URL: redis://redis:6379
+    STRIPE_SECRET_KEY: sk_test_mock
+    STRIPE_WEBHOOK_SECRET: whsec_test_secret
+    SMTP_HOST: smtp
+    SMTP_PORT: 1025
+    OAUTH_GOOGLE_CLIENT_ID: mock_google_client
+    OAUTH_GITHUB_CLIENT_ID: mock_github_client
+    SESSION_SECRET: ${random:32}
+    JWT_SECRET: ${random:64}
+
+  # Scripts included with template
+  scripts:
+    seed.sh: |
+      #!/bin/bash
+      npm run db:seed
+
+    create-test-users.sh: |
+      #!/bin/bash
+      npm run users:create-test
+
+    reset.sh: |
+      #!/bin/bash
+      npm run db:reset
+      npm run db:migrate
+      npm run db:seed

@@ -1,0 +1,323 @@
+# Microservices Stack Template
+# Event-driven microservices architecture with Kafka, multiple databases, and API gateway
+apiVersion: vers.sh/v1
+kind: StackTemplate
+metadata:
+  name: microservices
+  version: 1.0.0
+  description: Event-driven microservices with Kafka, multiple databases, and Kong gateway
+  category: microservices
+  tags:
+    - microservices
+    - event-driven
+    - kafka
+    - api-gateway
+
+spec:
+  vm:
+    memory_mib: 6144
+    vcpu: 4
+    storage_mib: 15000
+
+  services:
+    # Message broker
+    kafka:
+      template: kafka@3
+      config:
+        topics:
+          - name: user-events
+            partitions: 6
+            config:
+              retention.ms: 604800000  # 7 days
+          - name: order-events
+            partitions: 6
+          - name: inventory-events
+            partitions: 3
+          - name: notification-events
+            partitions: 1
+          - name: dead-letter
+            partitions: 1
+        schema_registry: true
+        broker_settings:
+          num.partitions: 3
+          default.replication.factor: 1
+
+    # Service databases - each service owns its data
+    postgres-users:
+      template: postgres@15
+      config:
+        databases:
+          - users
+        extensions:
+          - uuid-ossp
+
+    postgres-orders:
+      template: postgres@15
+      config:
+        databases:
+          - orders
+        extensions:
+          - uuid-ossp
+
+    mongodb-inventory:
+      template: mongodb@7
+      config:
+        databases:
+          - inventory
+
+    mongodb-analytics:
+      template: mongodb@7
+      config:
+        databases:
+          - analytics
+
+    # Shared cache
+    redis:
+      template: redis@7
+      config:
+        maxmemory: 512mb
+        maxmemory_policy: allkeys-lru
+
+    # API Gateway
+    kong:
+      template: kong@3
+      config:
+        database: "off"  # DB-less mode
+        routes:
+          - name: users
+            paths:
+              - /api/users
+            service: user-service
+            strip_path: false
+            plugins:
+              - name: rate-limiting
+                config:
+                  minute: 100
+              - name: jwt
+          - name: orders
+            paths:
+              - /api/orders
+            service: order-service
+            strip_path: false
+            plugins:
+              - name: rate-limiting
+                config:
+                  minute: 100
+          - name: inventory
+            paths:
+              - /api/inventory
+            service: inventory-service
+            strip_path: false
+          - name: analytics
+            paths:
+              - /api/analytics
+            service: analytics-service
+            strip_path: false
+
+    # Email
+    smtp:
+      template: mailhog
+
+  # Microservices (built from project)
+  app_services:
+    user-service:
+      build: ./services/user
+      depends_on:
+        - postgres-users
+        - kafka
+        - redis
+      env:
+        DATABASE_URL: postgres://postgres@postgres-users/users
+        KAFKA_BROKERS: kafka:9092
+        REDIS_URL: redis://redis:6379
+      ports:
+        - 3001:3000
+      replicas: 2
+      healthcheck:
+        path: /health
+        interval: 10s
+
+    order-service:
+      build: ./services/order
+      depends_on:
+        - postgres-orders
+        - kafka
+        - redis
+      env:
+        DATABASE_URL: postgres://postgres@postgres-orders/orders
+        KAFKA_BROKERS: kafka:9092
+        REDIS_URL: redis://redis:6379
+      ports:
+        - 3002:3000
+      replicas: 2
+      healthcheck:
+        path: /health
+
+    inventory-service:
+      build: ./services/inventory
+      depends_on:
+        - mongodb-inventory
+        - kafka
+      env:
+        MONGODB_URL: mongodb://mongodb-inventory/inventory
+        KAFKA_BROKERS: kafka:9092
+      ports:
+        - 3003:3000
+      replicas: 2
+      healthcheck:
+        path: /health
+
+    notification-service:
+      build: ./services/notification
+      depends_on:
+        - kafka
+        - smtp
+      env:
+        KAFKA_BROKERS: kafka:9092
+        SMTP_HOST: smtp
+        SMTP_PORT: 1025
+      replicas: 1
+      healthcheck:
+        path: /health
+
+    analytics-service:
+      build: ./services/analytics
+      depends_on:
+        - mongodb-analytics
+        - kafka
+      env:
+        MONGODB_URL: mongodb://mongodb-analytics/analytics
+        KAFKA_BROKERS: kafka:9092
+      ports:
+        - 3004:3000
+      replicas: 1
+      healthcheck:
+        path: /health
+
+  tests:
+    unit:
+      command: npm run test:unit --workspaces
+      parallel: true
+
+    service-integration:
+      command: npm run test:integration
+      branches:
+        - name: user-service
+          env:
+            TEST_SERVICE: user
+        - name: order-service
+          env:
+            TEST_SERVICE: order
+        - name: inventory-service
+          env:
+            TEST_SERVICE: inventory
+        - name: notification-service
+          env:
+            TEST_SERVICE: notification
+
+    event-flow:
+      command: npm run test:events
+      depends_on:
+        - kafka
+        - user-service
+        - order-service
+        - inventory-service
+        - notification-service
+      branches:
+        - name: order-created-flow
+          description: "Order created → Inventory reserved → Notification sent"
+          env:
+            EVENT_FLOW: order_created
+        - name: order-cancelled-flow
+          description: "Order cancelled → Inventory released → Notification sent"
+          env:
+            EVENT_FLOW: order_cancelled
+        - name: inventory-low-flow
+          description: "Inventory low → Alert triggered"
+          env:
+            EVENT_FLOW: inventory_low
+        - name: user-signup-flow
+          description: "User created → Welcome email → Analytics recorded"
+          env:
+            EVENT_FLOW: user_signup
+
+    contract:
+      command: npm run test:contracts
+      branches:
+        - name: user-order-contract
+          env:
+            PROVIDER: user-service
+            CONSUMER: order-service
+        - name: order-inventory-contract
+          env:
+            PROVIDER: order-service
+            CONSUMER: inventory-service
+
+    resilience:
+      command: npm run test:resilience
+      branches:
+        - name: kafka-unavailable
+          before: |
+            vers chaos inject --service kafka --action pause --duration 60s
+          expect:
+            - services.buffer_events
+            - services.recover_on_restore
+        - name: database-slow
+          before: |
+            vers chaos inject --service postgres-orders --action network-delay --latency 500ms
+          expect:
+            - services.timeout_gracefully
+        - name: service-crash
+          before: |
+            vers chaos inject --service order-service --action kill
+          expect:
+            - gateway.returns_503
+            - service.restarts
+
+    e2e:
+      command: npm run test:e2e
+      depends_on:
+        - kong
+      timeout: 300000
+
+  checkpoints:
+    - name: infrastructure-ready
+      after: services.[kafka,postgres-*,mongodb-*,redis].healthcheck
+      description: All infrastructure services healthy
+
+    - name: services-ready
+      after: app_services.*.healthcheck
+      description: All application services healthy
+
+    - name: consumers-connected
+      after: scripts/wait-for-consumers.sh
+      description: Kafka consumers connected and ready
+
+    - name: seeded
+      after: scripts/seed-all-services.sh
+      description: Test data loaded across all services
+
+  deploy:
+    staging:
+      target: vers.sh/hosted
+      domain: staging-api.${PROJECT_NAME}.vers.sh
+      resources:
+        memory: 4gb
+        vcpu: 2
+
+    production:
+      target: vers.sh/hosted
+      domain: api.${PROJECT_NAME}.vers.sh
+      resources:
+        memory: 8gb
+        vcpu: 4
+      scaling:
+        min: 3
+        max: 20
+        target_cpu: 70%
+
+  env_template:
+    KAFKA_BROKERS: kafka:9092
+    REDIS_URL: redis://redis:6379
+    SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    JWT_SECRET: ${random:64}

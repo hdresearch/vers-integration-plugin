@@ -1,0 +1,93 @@
+# Redis Service Template
+apiVersion: vers.sh/v1
+kind: ServiceTemplate
+metadata:
+  name: redis
+  versions: ["6", "7"]
+  description: Redis in-memory data store
+  category: cache
+
+spec:
+  image: redis:${VERSION}-alpine
+
+  ports:
+    - containerPort: 6379
+      hostPort: 6379
+      protocol: tcp
+
+  healthcheck:
+    command: redis-cli ping
+    interval: 5s
+    timeout: 3s
+    retries: 10
+    start_period: 5s
+
+  resources:
+    memory:
+      request: 64mb
+      limit: ${MEMORY_LIMIT:-256mb}
+    cpu:
+      request: 0.1
+      limit: 0.5
+
+  config:
+    maxmemory:
+      type: string
+      description: Maximum memory Redis can use
+      default: 128mb
+
+    maxmemory_policy:
+      type: string
+      description: Eviction policy when maxmemory is reached
+      default: allkeys-lru
+      options:
+        - noeviction
+        - allkeys-lru
+        - volatile-lru
+        - allkeys-random
+        - volatile-random
+        - volatile-ttl
+
+    persistence:
+      type: boolean
+      description: Enable AOF persistence
+      default: false
+
+    databases:
+      type: number
+      description: Number of Redis databases
+      default: 16
+
+    password:
+      type: string
+      description: Redis password (optional)
+      secret: true
+
+  command:
+    - redis-server
+    - --maxmemory
+    - ${config.maxmemory}
+    - --maxmemory-policy
+    - ${config.maxmemory_policy}
+    - --databases
+    - ${config.databases}
+    - "{{#if config.persistence}}--appendonly yes{{/if}}"
+    - "{{#if config.password}}--requirepass ${config.password}{{/if}}"
+
+  examples:
+    cache:
+      config:
+        maxmemory: 256mb
+        maxmemory_policy: allkeys-lru
+        persistence: false
+
+    session_store:
+      config:
+        maxmemory: 512mb
+        maxmemory_policy: volatile-lru
+        persistence: true
+
+    with_auth:
+      config:
+        maxmemory: 256mb
+        password: ${REDIS_PASSWORD}

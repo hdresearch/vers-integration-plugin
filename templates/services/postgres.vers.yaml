@@ -1,0 +1,122 @@
+# PostgreSQL Service Template
+apiVersion: vers.sh/v1
+kind: ServiceTemplate
+metadata:
+  name: postgres
+  versions: ["13", "14", "15", "16"]
+  description: PostgreSQL relational database
+  category: database
+
+spec:
+  image: postgres:${VERSION}-alpine
+
+  ports:
+    - containerPort: 5432
+      hostPort: 5432
+      protocol: tcp
+
+  environment:
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    PGDATA: /var/lib/postgresql/data/pgdata
+
+  volumes:
+    - name: data
+      path: /var/lib/postgresql/data
+      size: ${STORAGE_SIZE:-2gb}
+
+  healthcheck:
+    command: pg_isready -U ${POSTGRES_USER:-postgres}
+    interval: 5s
+    timeout: 5s
+    retries: 30
+    start_period: 10s
+
+  resources:
+    memory:
+      request: 256mb
+      limit: ${MEMORY_LIMIT:-512mb}
+    cpu:
+      request: 0.25
+      limit: 1
+
+  config:
+    # Configurable options
+    databases:
+      type: array
+      description: Additional databases to create
+      default: []
+
+    extensions:
+      type: array
+      description: PostgreSQL extensions to enable
+      default: []
+      options:
+        - uuid-ossp
+        - pg_trgm
+        - pgvector
+        - postgis
+        - btree_gin
+        - hstore
+
+    settings:
+      type: object
+      description: PostgreSQL configuration settings
+      default:
+        shared_buffers: 128MB
+        work_mem: 4MB
+        maintenance_work_mem: 64MB
+        max_connections: 100
+
+    init_scripts:
+      type: array
+      description: SQL scripts to run on initialization
+      default: []
+
+  init:
+    # Script to run after container starts
+    command: |
+      #!/bin/bash
+      set -e
+
+      # Wait for PostgreSQL to be ready
+      until pg_isready -U ${POSTGRES_USER:-postgres}; do
+        sleep 1
+      done
+
+      # Create additional databases
+      {{#each config.databases}}
+      psql -U ${POSTGRES_USER:-postgres} -c "CREATE DATABASE IF NOT EXISTS {{this}};"
+      {{/each}}
+
+      # Enable extensions
+      {{#each config.extensions}}
+      psql -U ${POSTGRES_USER:-postgres} -c "CREATE EXTENSION IF NOT EXISTS \"{{this}}\";"
+      {{/each}}
+
+      # Run init scripts
+      {{#each config.init_scripts}}
+      psql -U ${POSTGRES_USER:-postgres} -f {{this}}
+      {{/each}}
+
+  # Common usage patterns
+  examples:
+    basic:
+      config:
+        databases: [app]
+
+    with_extensions:
+      config:
+        databases: [app, analytics]
+        extensions: [uuid-ossp, pg_trgm]
+
+    production_like:
+      config:
+        databases: [app]
+        extensions: [uuid-ossp]
+        settings:
+          shared_buffers: 1GB
+          work_mem: 64MB
+          maintenance_work_mem: 256MB
+          effective_cache_size: 3GB

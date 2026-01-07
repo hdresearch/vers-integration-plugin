@@ -1,0 +1,140 @@
+# Kafka Service Template
+apiVersion: vers.sh/v1
+kind: ServiceTemplate
+metadata:
+  name: kafka
+  versions: ["3"]
+  description: Apache Kafka distributed streaming platform
+  category: message_queue
+
+spec:
+  image: confluentinc/cp-kafka:${VERSION}.0
+
+  depends_on:
+    - zookeeper
+
+  ports:
+    - containerPort: 9092
+      hostPort: 9092
+      protocol: tcp
+    - containerPort: 9093
+      hostPort: 9093
+      protocol: tcp
+      description: Internal listener
+
+  environment:
+    KAFKA_BROKER_ID: 1
+    KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+    KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  healthcheck:
+    command: kafka-broker-api-versions --bootstrap-server localhost:9092
+    interval: 10s
+    timeout: 10s
+    retries: 20
+    start_period: 30s
+
+  resources:
+    memory:
+      request: 512mb
+      limit: ${MEMORY_LIMIT:-1gb}
+    cpu:
+      request: 0.5
+      limit: 2
+
+  config:
+    topics:
+      type: array
+      description: Topics to create on startup
+      default: []
+      items:
+        name:
+          type: string
+          required: true
+        partitions:
+          type: number
+          default: 1
+        replication:
+          type: number
+          default: 1
+        config:
+          type: object
+
+    schema_registry:
+      type: boolean
+      description: Enable Confluent Schema Registry
+      default: false
+
+    connect:
+      type: boolean
+      description: Enable Kafka Connect
+      default: false
+
+    broker_settings:
+      type: object
+      description: Kafka broker configuration
+      default:
+        num.partitions: 3
+        default.replication.factor: 1
+        log.retention.hours: 168
+
+  init:
+    command: |
+      #!/bin/bash
+      set -e
+
+      # Wait for Kafka to be ready
+      until kafka-broker-api-versions --bootstrap-server localhost:9092; do
+        sleep 5
+      done
+
+      # Create topics
+      {{#each config.topics}}
+      kafka-topics --create \
+        --bootstrap-server localhost:9092 \
+        --topic {{this.name}} \
+        --partitions {{this.partitions}} \
+        --replication-factor {{this.replication}} \
+        --if-not-exists \
+        {{#each this.config}}--config {{@key}}={{this}} {{/each}}
+      {{/each}}
+
+  # Auto-include Zookeeper
+  includes:
+    - name: zookeeper
+      template: zookeeper
+      internal: true
+
+  examples:
+    basic:
+      config:
+        topics:
+          - name: events
+            partitions: 3
+          - name: notifications
+            partitions: 1
+
+    with_schema_registry:
+      config:
+        topics:
+          - name: events
+            partitions: 3
+        schema_registry: true
+
+    event_sourcing:
+      config:
+        topics:
+          - name: commands
+            partitions: 6
+            config:
+              retention.ms: -1
+          - name: events
+            partitions: 6
+            config:
+              retention.ms: -1
+        broker_settings:
+          log.retention.hours: -1

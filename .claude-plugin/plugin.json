@@ -1,0 +1,51 @@
+{
+  "name": "vers-integration-testing",
+  "version": "1.0.0",
+  "description": "Complete integration testing platform using Vers.sh VM branching. Test service compositions, run parallel integration tests, deploy to hosted environments, and share working integration stacks.",
+  "author": {
+    "name": "Vers.sh",
+    "email": "support@vers.sh",
+    "url": "https://vers.sh"
+  },
+  "homepage": "https://docs.vers.sh/plugins/integration-testing",
+  "repository": "https://github.com/hdresearch/vers-integration-plugin",
+  "keywords": [
+    "integration-testing",
+    "vm-branching",
+    "parallel-testing",
+    "database-testing",
+    "web-testing",
+    "microservices",
+    "deployment",
+    "staging",
+    "preview-environments"
+  ],
+  "engines": {
+    "claude-code": ">=1.0.0"
+  },
+  "capabilities": {
+    "mcp": true,
+    "skills": true,
+    "commands": true,
+    "hooks": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(vers:*)",
+      "Bash(docker:*)",
+      "Bash(psql:*)",
+      "Bash(redis-cli:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Read",
+      "Write",
+      "Edit"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(**/credentials*)",
+      "Read(**/*secret*)"
+    ]
+  }
+}
