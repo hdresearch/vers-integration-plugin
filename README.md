@@ -165,23 +165,35 @@ Each branch inherits complete state: filesystem, memory, running processes, netw
 
 ## Available Skills
 
-### vers-integration-testing
+### [vers-integration-testing](skills/vers-integration-testing/SKILL.md)
 Core integration testing knowledge. Activated for:
 - Service composition
 - Multi-service testing
 - Deployment workflows
 
-### vers-parallel-web-testing
+**Full Documentation:**
+- [SKILL.md](skills/vers-integration-testing/SKILL.md) - Core skill definition and usage
+- [SERVICE-CATALOG.md](skills/vers-integration-testing/SERVICE-CATALOG.md) - All available service templates
+- [COMPOSITION-PATTERNS.md](skills/vers-integration-testing/COMPOSITION-PATTERNS.md) - Recommended architectures
+- [TESTING-STRATEGIES.md](skills/vers-integration-testing/TESTING-STRATEGIES.md) - Testing approaches
+- [DEPLOYMENT-GUIDE.md](skills/vers-integration-testing/DEPLOYMENT-GUIDE.md) - Hosting options
+- [TROUBLESHOOTING.md](skills/vers-integration-testing/TROUBLESHOOTING.md) - Common issues
+
+### [vers-parallel-web-testing](skills/vers-parallel-web-testing/SKILL.md)
 Web/UI testing with browser state branching. Activated for:
 - Puppeteer/Playwright testing
 - Payment flow testing
 - Form submission testing
 
-### vers-database-testing
+**Features:** Branch-at-decision-point pattern, 95% test time reduction, exact state reproduction for debugging.
+
+### [vers-database-testing](skills/vers-database-testing/SKILL.md)
 Database state testing with schema migration support. Activated for:
 - PostgreSQL/MySQL testing
 - Migration testing
 - Data transformation testing
+
+**Features:** Snapshot-and-branch pattern, safe migration testing, instant rollback, parallel strategy comparison.
 
 ## Service Templates
 
