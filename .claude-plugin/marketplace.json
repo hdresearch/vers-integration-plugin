@@ -1,0 +1,11 @@
+{
+  "plugins": [
+    {
+      "name": "vers-integration-testing",
+      "owner": "hdresearch",
+      "source": "hdresearch/vers-integration-plugin",
+      "description": "Integration testing platform using Vers VM branching. Test 10-100x faster with parallel execution.",
+      "version": "1.0.0"
+    }
+  ]
+}

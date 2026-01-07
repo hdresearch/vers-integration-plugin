@@ -60,9 +60,17 @@ This plugin provides:
 
 ### Installation
 
-```bash
-# Install the plugin
-claude plugin install github:hdresearch/vers-integration-plugin
+In Claude Code, run:
+
+```
+/plugin marketplace add hdresearch/vers-integration-plugin
+/plugin install vers-integration-testing
+```
+
+Or install directly:
+
+```
+/plugin install github:hdresearch/vers-integration-plugin
 ```
 
 ### Basic Usage
